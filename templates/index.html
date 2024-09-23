@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Automation</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            color: #333;
+            text-align: center;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #4CAF50;
+        }
+
+        form {
+            background-color: #fff;
+            border-radius: 5px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        input[type="text"], select {
+            width: 80%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus, select:focus {
+            border-color: #4CAF50;
+            outline: none;
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        #result {
+            margin-top: 20px;
+            font-size: 1.2em;
+            color: #4CAF50;
+        }
+
+        #subjectContainer, #unitContainer {
+            display: none;
+        }
+
+        /* Loading bar styles */
+        #loadingBar {
+            display: none;
+            width: 80%;
+            height: 20px;
+            background-color: #f4f4f4;
+            border-radius: 5px;
+            margin: 20px auto;
+            position: relative;
+        }
+
+        #loadingProgress {
+            width: 0%;
+            height: 100%;
+            background-color: #4CAF50;
+            border-radius: 5px;
+            position: absolute;
+            transition: width 0.5s;
+        }
+    </style>
+</head>
+<body>
+    <h1>Quiz Automation</h1>
+    <form id="quizForm">
+        <label for="token">Enter Token:</label>
+        <input type="text" id="token" name="token" required>
+        <br>
+        <button type="submit">Fetch Subjects</button>
+    </form>
+
+    <div id="subjectContainer">
+        <label for="subject_id">Select Subject ID:</label>
+        <select id="subject_id" name="subject_id" required></select>
+        <br>
+        <button id="fetchUnitsBtn">Fetch Units</button>
+    </div>
+
+    <div id="unitContainer">
+        <label for="unit_id">Select Unit ID:</label>
+        <select id="unit_id" name="unit_id" required></select>
+        <br>
+        <button id="submitQuizBtn">Submit Quiz</button>
+    </div>
+
+    <div id="loadingBar">
+        <div id="loadingProgress"></div>
+    </div>
+
+    <div id="result"></div>
+
+    <script>
+        $('#quizForm').on('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            fetch('/fetch-subjects', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message) {
+                    alert(data.message);
+                } else {
+                    const subjectSelect = $('#subject_id');
+                    subjectSelect.empty();
+                    $.each(data, function(key, value) {
+                        subjectSelect.append($('<option></option>').attr('value', key).text(value));
+                    });
+                    $('#subjectContainer').show();
+                }
+            });
+        });
+
+        $('#fetchUnitsBtn').on('click', function(e) {
+            e.preventDefault();
+            const subjectId = $('#subject_id').val();
+            fetch(`/fetch-units/${subjectId}`)
+            .then(response => response.json())
+            .then(data => {
+                const unitSelect = $('#unit_id');
+                unitSelect.empty();
+                $.each(data, function(key, value) {
+                    unitSelect.append($('<option></option>').attr('value', key).text(value));
+                });
+                $('#unitContainer').show();
+            })
+            .catch(error => {
+                console.error('Error fetching units:', error);
+            });
+        });
+
+        $('#submitQuizBtn').on('click', function() {
+            const unitId = $('#unit_id').val();
+            const formData = new FormData();
+            formData.append('unit_id', unitId);
+            
+            // Show loading bar
+            $('#loadingBar').show();
+            $('#loadingProgress').css('width', '0%');  // Reset width
+            $('#result').text('');  // Clear previous results
+            
+            let progress = 0;
+
+            // Start loading progress simulation
+            const interval = setInterval(() => {
+                if (progress < 100) {
+                    progress += 5; // Increase progress
+                    $('#loadingProgress').css('width', progress + '%');
+                } else {
+                    progress = 0; // Reset to 0 to loop
+                }
+            }, 200); // Update every 200ms
+            
+            fetch('/submit-quiz', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                clearInterval(interval); // Clear the loading simulation
+                $('#loadingProgress').css('width', '100%'); // Complete loading
+                
+                // Show result message
+                $('#result').text(data.message);
+                setTimeout(() => {
+                    $('#loadingBar').hide();  // Hide loading bar after a short delay
+                }, 500); // Wait for a moment before hiding
+            })
+            .catch(error => {
+                clearInterval(interval); // Clear the loading simulation
+                $('#loadingBar').hide();  // Hide loading bar on error
+                console.error('Error submitting quiz:', error);
+            });
+        });
+    </script>
+</body>
+</html>
